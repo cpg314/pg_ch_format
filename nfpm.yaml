@@ -1,0 +1,17 @@
+name: "pg_ch_format"
+arch: "amd64"
+platform: "linux"
+version: "${CARGO_MAKE_PROJECT_VERSION}"
+release: "${RELEASE}"
+section: "default"
+priority: "extra"
+provides:
+  - pg_ch_format
+description: "Format Postgres and Clickhouse SQL"
+vendor: "cpg314"
+maintainer: "cpg314 <44120267+cpg314@users.noreply.github.com>"
+homepage: "https://github.com/cpg314/pg_ch_format"
+contents:
+  - src: "./target-cross/$ARCH/release/pg_ch_format"
+    dst: /usr/local/bin/pg_ch_format
+    expand: true
