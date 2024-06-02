@@ -1,7 +1,11 @@
 use tracing::*;
 
-#[derive(Debug)]
-enum Dialect {
+lazy_static::lazy_static! {
+    static ref DIALECT_RE: regex::Regex = regex::Regex::new(r#"--\s*dialect\s*=\s*(\S*)"#).unwrap();
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, clap::ValueEnum)]
+pub enum Dialect {
     Postgres,
     Clickhouse,
 }
@@ -20,25 +24,32 @@ impl Dialect {
 }
 
 // TODO: This is for now very primitive
-fn guess_dialect(contents: &str) -> Dialect {
-    for dialect in [Dialect::Postgres, Dialect::Clickhouse] {
-        if contents
-            .to_lowercase()
-            .contains(&format!("-- dialect={:?}", dialect).to_lowercase())
-        {
-            return dialect;
-        }
-        if ["MergeTree", "ENGINE", "UInt", "Float32", "Float64"]
-            .iter()
-            .any(|c| contents.contains(c))
-        {
-            return Dialect::Clickhouse;
+fn guess_dialect(contents: &str) -> anyhow::Result<Dialect> {
+    if let Some(cap) = DIALECT_RE.captures(&contents.to_lowercase()) {
+        let dialect = cap.get(1).unwrap().as_str().to_lowercase();
+        match dialect.as_str() {
+            "clickhouse" => return Ok(Dialect::Clickhouse),
+            "postgres" => return Ok(Dialect::Postgres),
+            _ => {
+                anyhow::bail!("Unknown dialect '{}'", dialect);
+            }
         }
     }
-    Dialect::Postgres
+    if ["MergeTree", "ENGINE", "UInt", "Float32", "Float64"]
+        .iter()
+        .any(|c| contents.contains(c))
+    {
+        return Ok(Dialect::Clickhouse);
+    }
+    warn!("Falling back to Postgres dialect");
+    Ok(Dialect::Postgres)
 }
-pub fn format_one(contents: &str) -> anyhow::Result<String> {
-    let dialect = guess_dialect(contents);
+pub fn format_one(contents: &str, dialect: Option<Dialect>) -> anyhow::Result<String> {
+    let dialect = if let Some(dialect) = dialect {
+        dialect
+    } else {
+        guess_dialect(contents)?
+    };
     debug!(?dialect, "Guessed dialect");
     let out = dialect
         .command()
@@ -47,4 +58,19 @@ pub fn format_one(contents: &str) -> anyhow::Result<String> {
         .run()?
         .stdout;
     Ok(String::from_utf8(out)?)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn dialect() {
+        for s in [
+            "--dialect=Clickhouse",
+            "-- dialect =  Clickhouse",
+            "-- dialect=clickhouse",
+        ] {
+            assert_eq!(guess_dialect(s).unwrap(), Dialect::Clickhouse);
+        }
+    }
 }

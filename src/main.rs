@@ -25,6 +25,8 @@ struct Flags {
     /// Rewrite the formatted files..
     #[clap(long, short)]
     inplace: bool,
+    #[clap(long)]
+    dialect: Option<pg_ch_format::Dialect>,
     /// Folder, filename, or `-` to read from stdin.
     input: Utf8PathBuf,
     #[clap(long, short)]
@@ -35,7 +37,7 @@ fn process_file(f: impl AsRef<Path>, args: &Flags) -> anyhow::Result<bool> {
     let f = f.as_ref();
     info!("Processing {:?}", f);
     let original = std::fs::read_to_string(f)?;
-    let mut formatted = format_one(&original)?;
+    let mut formatted = format_one(&original, args.dialect)?;
     if !formatted.ends_with("\n\n") {
         if !formatted.ends_with('\n') {
             formatted.push('\n');
@@ -92,7 +94,7 @@ fn main_impl() -> anyhow::Result<()> {
         stdin.read_to_end(&mut data)?;
         drop(stdin);
         let data = String::from_utf8(data)?;
-        println!("{}", format_one(&data)?);
+        println!("{}", format_one(&data, args.dialect)?);
         return Ok(());
     } else if args.input.is_file() {
         process_file(&args.input, &args)?

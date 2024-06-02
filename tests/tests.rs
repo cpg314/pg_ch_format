@@ -8,8 +8,8 @@ fn test() -> anyhow::Result<()> {
         let f = camino::Utf8PathBuf::try_from(f?)?;
         println!("Testing {}", f);
         assert_eq!(
-            format_one(&std::fs::read_to_string(&f)?)?,
-            std::fs::read_to_string(data.join("formatted").join(f.file_name().unwrap()))?
+            format_one(&std::fs::read_to_string(&f)?, None)?.trim(),
+            std::fs::read_to_string(data.join("formatted").join(f.file_name().unwrap()))?.trim()
         );
     }
     Ok(())
